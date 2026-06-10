@@ -1,0 +1,58 @@
+name: Build Advanced Mining Suite
+
+# Runs automatically when you push any change to GitHub
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:   # Also lets you trigger it manually from the Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      # 1. Download your repository files
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Install Java 25 (required by Minecraft 26.1)
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      # 3. Cache Gradle downloads so repeat builds are faster
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      # 4. Make the Gradle wrapper executable
+      - name: Grant Gradle wrapper permission
+        run: chmod +x gradlew
+
+      # 5. Compile and package the mod
+      - name: Build mod JAR
+        run: ./gradlew build --no-daemon
+
+      # 6. Upload the compiled JAR as a downloadable artifact
+      #    Go to: Actions tab → this workflow run → Artifacts section → Download
+      - name: Upload compiled mod JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: advancedmining-mod-jar
+          # Excludes the -sources jar (dev use only), keeps only the playable jar
+          path: |
+            build/libs/*.jar
+            !build/libs/*-sources.jar
+          retention-days: 30
+
+      - name: Build success message
+        run: echo "✅ Build complete! Download advancedmining-mod-jar from the Artifacts section above."
